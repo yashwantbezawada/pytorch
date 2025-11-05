@@ -2,6 +2,7 @@
 
 #include <c10/util/Exception.h>
 #include <torch/csrc/inductor/aoti_torch/c/shim.h>
+#include <torch/csrc/stable/c/shim.h>
 #include <torch/csrc/stable/tensor_struct.h>
 #include <torch/headeronly/core/ScalarType.h>
 #include <torch/headeronly/macros/Macros.h>
@@ -192,6 +193,37 @@ struct FromImpl<torch::stable::Tensor> {
   }
 };
 
+// Specialization for torch::headeronly::HeaderOnlyArrayRef<T> => StableIValue
+// Returns a new owning reference of the underlying list.
+template <typename T>
+struct FromImpl<torch::headeronly::HeaderOnlyArrayRef<T>> {
+  static StableIValue call(
+      const torch::headeronly::HeaderOnlyArrayRef<T>& val,
+      [[maybe_unused]] uint64_t extension_build_version,
+      [[maybe_unused]] bool is_internal) {
+    StableListHandle new_list_handle;
+    TORCH_ERROR_CODE_CHECK(
+        torch_new_list_reserve_size(val.size(), &new_list_handle));
+    for (const auto& elem : val) {
+      TORCH_ERROR_CODE_CHECK(torch_list_push_back(new_list_handle, from(elem)));
+    }
+    return from(new_list_handle);
+  }
+};
+
+// Specialization for std::vector<T> => StableIValue, which is implemented the
+// same way as HeaderOnlyArrayRef<T> => StableIValue
+// Returns a new owning reference of the underlying list.
+template <typename T>
+struct FromImpl<std::vector<T>> {
+  static StableIValue call(
+      const std::vector<T>& val,
+      [[maybe_unused]] uint64_t extension_build_version,
+      [[maybe_unused]] bool is_internal) {
+    return from<torch::headeronly::HeaderOnlyArrayRef<T>>(val);
+  }
+};
+
 // =============================================================================
 // TO CONVERSIONS (StableIValue -> T)
 // =============================================================================
@@ -339,6 +371,33 @@ struct ToImpl<torch::stable::Tensor> {
       [[maybe_unused]] uint64_t extension_build_version,
       [[maybe_unused]] bool is_internal) {
     return torch::stable::Tensor(to<AtenTensorHandle>(val));
+  }
+};
+
+// Specialization for StableIValue => std::vector<T>
+// std::vector<T> should be represented as a StableListHandle
+// filled with StableIValues
+// The new std::vector steals ownership of the underlying elements
+// and StableListHandle is freed.
+template <typename T>
+struct ToImpl<std::vector<T>> {
+  static std::vector<T> call(
+      StableIValue val,
+      [[maybe_unused]] uint64_t extension_build_version,
+      [[maybe_unused]] bool is_internal) {
+    auto list_handle = to<StableListHandle>(val);
+    size_t size;
+    TORCH_ERROR_CODE_CHECK(torch_list_size(list_handle, &size));
+    std::vector<T> result;
+    result.reserve(size);
+    for (size_t i = 0; i < size; i++) {
+      StableIValue element;
+      TORCH_ERROR_CODE_CHECK(torch_list_at(list_handle, i, &element));
+      result.emplace_back(to<T>(element));
+    }
+
+    TORCH_ERROR_CODE_CHECK(torch_delete_list(list_handle));
+    return result;
   }
 };
 
