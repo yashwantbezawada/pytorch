@@ -1645,28 +1645,26 @@ if(USE_KINETO)
       # I've only tested this sanity check on Linux; if someone
       # runs into this bug on another platform feel free to
       # generalize it accordingly
-      if(NOT USE_CUPTI_SO AND UNIX)
+      if(NOT USE_CUPTI_SO AND UNIX AND CUDA_cupti_static_LIBRARY)
         include(CheckCXXSourceRuns)
         list(APPEND CMAKE_REQUIRED_LIBRARIES "dl")
         list(APPEND CMAKE_REQUIRED_LIBRARIES "pthread")
-        if(TARGET CUDA::cupti_static)
-          list(APPEND CMAKE_REQUIRED_LIBRARIES $<LINK_LIBRARY:WHOLE_ARCHIVE,${CUDA_cupti_static_LIBRARY}>)
-          check_cxx_source_runs("#include <stdexcept>
-    int main() {
-      try {
-        throw std::runtime_error(\"error\");
-      } catch (...) {
-        return 0;
-      }
-      return 1;
-    }" EXCEPTIONS_WORK)
-          set(CMAKE_REQUIRED_LINK_OPTIONS "")
-          if(NOT EXCEPTIONS_WORK)
-            message(FATAL_ERROR
-              "Detected that statically linking against CUPTI causes exceptions to stop working.  "
-              "See https://github.com/pytorch/pytorch/issues/57744 for more details.  "
-              "Perhaps try: USE_CUPTI_SO=1 CMAKE_FRESH=1 python -m pip install -e . -v --no-build-isolation")
-          endif()
+        list(APPEND CMAKE_REQUIRED_LIBRARIES $<LINK_LIBRARY:WHOLE_ARCHIVE,${CUDA_cupti_static_LIBRARY}>)
+        check_cxx_source_runs("#include <stdexcept>
+  int main() {
+    try {
+      throw std::runtime_error(\"error\");
+    } catch (...) {
+      return 0;
+    }
+    return 1;
+  }" EXCEPTIONS_WORK)
+        set(CMAKE_REQUIRED_LINK_OPTIONS "")
+        if(NOT EXCEPTIONS_WORK)
+          message(FATAL_ERROR
+            "Detected that statically linking against CUPTI causes exceptions to stop working.  "
+            "See https://github.com/pytorch/pytorch/issues/57744 for more details.  "
+            "Perhaps try: USE_CUPTI_SO=1 CMAKE_FRESH=1 python -m pip install -e . -v --no-build-isolation")
         endif()
       endif()
 
