@@ -1651,22 +1651,24 @@ if(USE_KINETO)
         if(NOT APPLE)
           set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} "dl" "pthread")
         endif()
-        set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} $<LINK_LIBRARY:WHOLE_ARCHIVE,CUDA::cupti_static>)
-        check_cxx_source_runs("#include <stdexcept>
-  int main() {
-    try {
-      throw std::runtime_error(\"error\");
-    } catch (...) {
-      return 0;
-    }
-    return 1;
-  }" EXCEPTIONS_WORK)
-        set(CMAKE_REQUIRED_LINK_OPTIONS "")
-        if(NOT EXCEPTIONS_WORK)
-          message(FATAL_ERROR
-            "Detected that statically linking against CUPTI causes exceptions to stop working.  "
-            "See https://github.com/pytorch/pytorch/issues/57744 for more details.  "
-            "Perhaps try: USE_CUPTI_SO=1 CMAKE_FRESH=1 python -m pip install -e . -v --no-build-isolation")
+        if(TARGET CUDA::cupti_static)
+          set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} $<LINK_LIBRARY:WHOLE_ARCHIVE,CUDA::cupti_static>)
+          check_cxx_source_runs("#include <stdexcept>
+    int main() {
+      try {
+        throw std::runtime_error(\"error\");
+      } catch (...) {
+        return 0;
+      }
+      return 1;
+    }" EXCEPTIONS_WORK)
+          set(CMAKE_REQUIRED_LINK_OPTIONS "")
+          if(NOT EXCEPTIONS_WORK)
+            message(FATAL_ERROR
+              "Detected that statically linking against CUPTI causes exceptions to stop working.  "
+              "See https://github.com/pytorch/pytorch/issues/57744 for more details.  "
+              "Perhaps try: USE_CUPTI_SO=1 CMAKE_FRESH=1 python -m pip install -e . -v --no-build-isolation")
+          endif()
         endif()
       endif()
 
