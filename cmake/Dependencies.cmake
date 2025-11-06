@@ -1647,12 +1647,10 @@ if(USE_KINETO)
       # generalize it accordingly
       if(NOT USE_CUPTI_SO AND UNIX)
         include(CheckCXXSourceRuns)
-        # rt is handled by the CMAKE_REQUIRED_LIBRARIES set above
-        if(NOT APPLE)
-          set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} "dl" "pthread")
-        endif()
+        list(APPEND CMAKE_REQUIRED_LIBRARIES "dl")
+        list(APPEND CMAKE_REQUIRED_LIBRARIES "pthread")
         if(TARGET CUDA::cupti_static)
-          set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} $<LINK_LIBRARY:WHOLE_ARCHIVE,CUDA::cupti_static>)
+          list(APPEND CMAKE_REQUIRED_LIBRARIES $<LINK_LIBRARY:WHOLE_ARCHIVE,${CUDA_cupti_static_LIBRARY}>)
           check_cxx_source_runs("#include <stdexcept>
     int main() {
       try {
